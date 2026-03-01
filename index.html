@@ -105,7 +105,7 @@
 			         in your GitHub repo, then change "images/djg-logo.svg" below to
 			         match your filename. E.g. "images/my-logo.png" -->
 			<a href="/" class="djg-logo" title="DJGrotenhuis">
-				<img src="images/logo.png" alt="DJG" height="32" />
+				<img src="images/djg-logo.svg" alt="DJG" height="36" />
 			</a>
 
 			<!-- Navigation links -->
@@ -127,8 +127,8 @@
 
 				<!-- Header -->
 					<header id="header">
-						<div class="logo" style="display:flex; align-items:center; justify-content:center;">
-							<img src="images/logo.png" alt="DJG" height="88"/>
+						<div class="logo">
+							<span class="icon fa-gem"></span>
 						</div>
 						<div class="content">
 							<div class="inner">
@@ -465,12 +465,75 @@ print 'It took ' + i + ' iterations to sort the deck.';</code></pre>
 			<script src="assets/js/util.js"></script>
 			<script src="assets/js/main.js"></script>
 
+		<!-- LAVA LAMP CANVAS -->
+		<canvas id="lava-canvas"></canvas>
+
+		<script>
+		(function() {
+			const canvas = document.getElementById("lava-canvas");
+			const ctx    = canvas.getContext("2d");
+
+			canvas.style.cssText = [
+				"position:fixed","top:0","left:0",
+				"width:100%","height:100%",
+				"z-index:0","pointer-events:none"
+			].join(";");
+
+			function resize() {
+				canvas.width  = window.innerWidth;
+				canvas.height = window.innerHeight;
+			}
+			resize();
+			window.addEventListener("resize", resize);
+
+			const BLOB_OPACITY = 0.13;
+
+			function makeBlob() {
+				const w = canvas.width, h = canvas.height;
+				const size = Math.random() * 320 + 180;
+				return {
+					x: Math.random() * w,
+					y: Math.random() * h,
+					size: size,
+					vx: (Math.random() - 0.5) * 0.25,
+					vy: (Math.random() - 0.5) * 0.25,
+					hue: Math.random() * 360,
+					hueSpeed: (Math.random() - 0.5) * 0.04,
+					baseSize: size,
+					breathe: Math.random() * Math.PI * 2,
+					breatheSpeed: 0.003 + Math.random() * 0.003,
+				};
+			}
+
+			const blobs = Array.from({ length: 6 }, makeBlob);
+
+			function draw() {
+				ctx.clearRect(0, 0, canvas.width, canvas.height);
+				for (const b of blobs) {
+					b.x += b.vx;
+					b.y += b.vy;
+					const pad = b.size;
+					if (b.x < -pad)               b.x = canvas.width  + pad;
+					if (b.x > canvas.width  + pad) b.x = -pad;
+					if (b.y < -pad)               b.y = canvas.height + pad;
+					if (b.y > canvas.height + pad) b.y = -pad;
+					b.breathe += b.breatheSpeed;
+					const r = b.baseSize + Math.sin(b.breathe) * b.baseSize * 0.12;
+					b.hue = (b.hue + b.hueSpeed + 360) % 360;
+					const grad = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, r);
+					grad.addColorStop(0,   `hsla(${b.hue}, 55%, 45%, ${BLOB_OPACITY})`);
+					grad.addColorStop(0.5, `hsla(${b.hue}, 50%, 35%, ${BLOB_OPACITY * 0.5})`);
+					grad.addColorStop(1,   `hsla(${b.hue}, 45%, 25%, 0)`);
+					ctx.beginPath();
+					ctx.arc(b.x, b.y, r, 0, Math.PI * 2);
+					ctx.fillStyle = grad;
+					ctx.fill();
+				}
+				requestAnimationFrame(draw);
+			}
+			requestAnimationFrame(draw);
+		})();
+		</script>
+
 	</body>
 </html>
-
-
-
-
-
-
-
