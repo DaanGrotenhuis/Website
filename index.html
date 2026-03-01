@@ -486,10 +486,11 @@ print 'It took ' + i + ' iterations to sort the deck.';</code></pre>
 			const canvas = document.getElementById("lava-canvas");
 			const ctx    = canvas.getContext("2d");
 
+			// Allow mouse events so we can interact
 			canvas.style.cssText = [
 				"position:fixed","top:0","left:0",
 				"width:100%","height:100%",
-				"z-index:0","pointer-events:none"
+				"z-index:2","pointer-events:none"
 			].join(";");
 
 			function resize() {
@@ -500,6 +501,15 @@ print 'It took ' + i + ' iterations to sort the deck.';</code></pre>
 			window.addEventListener("resize", resize);
 
 			const BLOB_OPACITY = 0.13;
+			const MAX_SPEED    = 2.5;   // cap so blobs don't fly off forever
+			const FRICTION     = 0.995; // tiny friction so they slowly return to calm
+
+			// Track mouse position
+			let mouse = { x: -9999, y: -9999 };
+			window.addEventListener("mousemove", e => {
+				mouse.x = e.clientX;
+				mouse.y = e.clientY;
+			});
 
 			function makeBlob() {
 				const w = canvas.width, h = canvas.height;
@@ -515,24 +525,119 @@ print 'It took ' + i + ' iterations to sort the deck.';</code></pre>
 					baseSize: size,
 					breathe: Math.random() * Math.PI * 2,
 					breatheSpeed: 0.003 + Math.random() * 0.003,
+					mass: size, // bigger blobs = heavier
 				};
 			}
 
 			const blobs = Array.from({ length: 6 }, makeBlob);
 
+			function clampSpeed(b) {
+				const spd = Math.sqrt(b.vx * b.vx + b.vy * b.vy);
+				if (spd > MAX_SPEED) {
+					b.vx = (b.vx / spd) * MAX_SPEED;
+					b.vy = (b.vy / spd) * MAX_SPEED;
+				}
+			}
+
+			function handleMouseRepulsion(b) {
+				// Blobs near the cursor get gently pushed away
+				const dx = b.x - mouse.x;
+				const dy = b.y - mouse.y;
+				const dist = Math.sqrt(dx * dx + dy * dy);
+				const influence = b.size * 1.6; // how close mouse needs to be
+				if (dist < influence && dist > 1) {
+					const force = (influence - dist) / influence; // 0→1 as mouse gets closer
+					b.vx += (dx / dist) * force * 0.4;
+					b.vy += (dy / dist) * force * 0.4;
+				}
+			}
+
+			function handleWallBounce(b, r) {
+				// Bounce off walls with a little energy loss
+				if (b.x - r < 0) {
+					b.x = r;
+					b.vx = Math.abs(b.vx) * 0.8;
+				}
+				if (b.x + r > canvas.width) {
+					b.x = canvas.width - r;
+					b.vx = -Math.abs(b.vx) * 0.8;
+				}
+				if (b.y - r < 0) {
+					b.y = r;
+					b.vy = Math.abs(b.vy) * 0.8;
+				}
+				if (b.y + r > canvas.height) {
+					b.y = canvas.height - r;
+					b.vy = -Math.abs(b.vy) * 0.8;
+				}
+			}
+
+			function handleBlobCollisions() {
+				// Elastic-ish collision between every pair of blobs
+				for (let i = 0; i < blobs.length; i++) {
+					for (let j = i + 1; j < blobs.length; j++) {
+						const a = blobs[i], b = blobs[j];
+						const dx   = b.x - a.x;
+						const dy   = b.y - a.y;
+						const dist = Math.sqrt(dx * dx + dy * dy);
+						// Use ~40% of their visual radius as collision radius (they're soft blobs)
+						const minDist = (a.size + b.size) * 0.4;
+
+						if (dist < minDist && dist > 0.5) {
+							// Push them apart
+							const nx = dx / dist, ny = dy / dist;
+							const overlap = (minDist - dist) / 2;
+							a.x -= nx * overlap;
+							a.y -= ny * overlap;
+							b.x += nx * overlap;
+							b.y += ny * overlap;
+
+							// Exchange velocity components along collision axis (elastic)
+							const dvx = a.vx - b.vx;
+							const dvy = a.vy - b.vy;
+							const dot = dvx * nx + dvy * ny;
+							if (dot > 0) { // only if approaching
+								const ma = a.mass, mb = b.mass, total = ma + mb;
+								const impulse = (2 * dot) / total;
+								a.vx -= impulse * mb * nx;
+								a.vy -= impulse * mb * ny;
+								b.vx += impulse * ma * nx;
+								b.vy += impulse * ma * ny;
+							}
+						}
+					}
+				}
+			}
+
 			function draw() {
 				ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+				// Physics pass
+				handleBlobCollisions();
+
 				for (const b of blobs) {
+					handleMouseRepulsion(b);
+
+					// Apply friction
+					b.vx *= FRICTION;
+					b.vy *= FRICTION;
+					clampSpeed(b);
+
+					// Move
 					b.x += b.vx;
 					b.y += b.vy;
-					const pad = b.size;
-					if (b.x < -pad)               b.x = canvas.width  + pad;
-					if (b.x > canvas.width  + pad) b.x = -pad;
-					if (b.y < -pad)               b.y = canvas.height + pad;
-					if (b.y > canvas.height + pad) b.y = -pad;
+
+					// Breathe
 					b.breathe += b.breatheSpeed;
 					const r = b.baseSize + Math.sin(b.breathe) * b.baseSize * 0.12;
+
+					// Wall bounce (uses current breathe radius)
+					handleWallBounce(b, r * 0.4);
+
+					// Drift hue
 					b.hue = (b.hue + b.hueSpeed + 360) % 360;
+
+					// Draw blob
 					const grad = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, r);
 					grad.addColorStop(0,   `hsla(${b.hue}, 55%, 45%, ${BLOB_OPACITY})`);
 					grad.addColorStop(0.5, `hsla(${b.hue}, 50%, 35%, ${BLOB_OPACITY * 0.5})`);
@@ -542,6 +647,7 @@ print 'It took ' + i + ' iterations to sort the deck.';</code></pre>
 					ctx.fillStyle = grad;
 					ctx.fill();
 				}
+
 				requestAnimationFrame(draw);
 			}
 			requestAnimationFrame(draw);
