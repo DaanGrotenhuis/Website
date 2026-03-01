@@ -118,7 +118,7 @@
 			         in your GitHub repo, then change "images/djg-logo.svg" below to
 			         match your filename. E.g. "images/my-logo.png" -->
 			<a href="/" class="djg-logo" title="DJGrotenhuis">
-				<img src="images/logo.png" alt="DJG" height="36" />
+				<img src="images/djg-logo.svg" alt="DJG" height="36" />
 			</a>
 
 			<!-- Navigation links -->
@@ -544,7 +544,7 @@ print 'It took ' + i + ' iterations to sort the deck.';</code></pre>
 				const dx = b.x - mouse.x;
 				const dy = b.y - mouse.y;
 				const dist = Math.sqrt(dx * dx + dy * dy);
-				const influence = b.size * 1.6; // how close mouse needs to be
+				const influence = b.size * 0.45; // how close mouse needs to be
 				if (dist < influence && dist > 1) {
 					const force = (influence - dist) / influence; // 0→1 as mouse gets closer
 					b.vx += (dx / dist) * force * 0.4;
@@ -581,7 +581,7 @@ print 'It took ' + i + ' iterations to sort the deck.';</code></pre>
 						const dy   = b.y - a.y;
 						const dist = Math.sqrt(dx * dx + dy * dy);
 						// Use ~40% of their visual radius as collision radius (they're soft blobs)
-						const minDist = (a.size + b.size) * 0.4;
+						const minDist = (a.size + b.size) * 0.15;
 
 						if (dist < minDist && dist > 0.5) {
 							// Push them apart
@@ -632,16 +632,18 @@ print 'It took ' + i + ' iterations to sort the deck.';</code></pre>
 					const r = b.baseSize + Math.sin(b.breathe) * b.baseSize * 0.12;
 
 					// Wall bounce (uses current breathe radius)
-					handleWallBounce(b, r * 0.4);
+					handleWallBounce(b, r * 0.15);
 
 					// Drift hue
 					b.hue = (b.hue + b.hueSpeed + 360) % 360;
 
-					// Draw blob
-					const grad = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, r);
-					grad.addColorStop(0,   `hsla(${b.hue}, 55%, 45%, ${BLOB_OPACITY})`);
-					grad.addColorStop(0.5, `hsla(${b.hue}, 50%, 35%, ${BLOB_OPACITY * 0.5})`);
-					grad.addColorStop(1,   `hsla(${b.hue}, 45%, 25%, 0)`);
+					// Draw blob — smooth gradient, no visible rings or hard centre
+					const grad = ctx.createRadialGradient(b.x, b.y, r * 0.0, b.x, b.y, r);
+					grad.addColorStop(0,    `hsla(${b.hue}, 55%, 45%, ${BLOB_OPACITY * 0.6})`);
+					grad.addColorStop(0.25, `hsla(${b.hue}, 55%, 43%, ${BLOB_OPACITY * 0.55})`);
+					grad.addColorStop(0.5,  `hsla(${b.hue}, 52%, 40%, ${BLOB_OPACITY * 0.4})`);
+					grad.addColorStop(0.75, `hsla(${b.hue}, 50%, 36%, ${BLOB_OPACITY * 0.2})`);
+					grad.addColorStop(1,    `hsla(${b.hue}, 45%, 30%, 0)`);
 					ctx.beginPath();
 					ctx.arc(b.x, b.y, r, 0, Math.PI * 2);
 					ctx.fillStyle = grad;
@@ -656,4 +658,3 @@ print 'It took ' + i + ' iterations to sort the deck.';</code></pre>
 
 	</body>
 </html>
-
